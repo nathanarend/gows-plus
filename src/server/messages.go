@@ -277,6 +277,22 @@ func (s *Server) SendMessage(ctx context.Context, req *__.MessageRequest) (*__.M
 		}
 		extra.AdditionalNodes = &[]waBinary.Node{node}
 
+	} else if req.GetPix() != nil {
+		// PIX Message
+		pix := gows.PixMessage{
+			MerchantName: req.Pix.MerchantName,
+			Key:          req.Pix.Key,
+			KeyType:      req.Pix.KeyType,
+			Currency:     req.Pix.Currency,
+			ReferenceID:  req.Pix.ReferenceId,
+		}
+		message, err = gows.BuildPixMessage(pix, contextInfo)
+		if err != nil {
+			if errors.Is(err, gows.ErrInvalidPix) {
+				return nil, status.Error(codes.InvalidArgument, err.Error())
+			}
+			return nil, err
+		}
 	} else if req.Location != nil {
 		// Location Message
 		locationMessage := &waE2E.LocationMessage{
