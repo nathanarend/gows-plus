@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	waBinary "go.mau.fi/whatsmeow/binary"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"google.golang.org/protobuf/proto"
 )
@@ -178,9 +179,20 @@ func BuildPixMessage(pix PixMessage, contextInfo *waE2E.ContextInfo) (*waE2E.Mes
 		},
 		ContextInfo: contextInfo,
 	}
-	return &waE2E.Message{
-		ViewOnceMessage: &waE2E.FutureProofMessage{
-			Message: &waE2E.Message{InteractiveMessage: interactive},
-		},
-	}, nil
+	// No view-once wrapper - clients drop wrapped payment_info messages
+	return &waE2E.Message{InteractiveMessage: interactive}, nil
+}
+
+// IsPixMessage reports whether msg is a native flow "payment_info" message
+func IsPixMessage(msg *waE2E.Message) bool {
+	buttons := msg.GetInteractiveMessage().GetNativeFlowMessage().GetButtons()
+	return len(buttons) > 0 && buttons[0].GetName() == PixButtonName
+}
+
+// PixBizNode is the stanza node required for clients to render a "payment_info" message
+func PixBizNode() waBinary.Node {
+	return waBinary.Node{
+		Tag:   "biz",
+		Attrs: waBinary.Attrs{"native_flow_name": PixButtonName},
+	}
 }

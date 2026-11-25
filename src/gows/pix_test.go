@@ -13,8 +13,8 @@ import (
 
 func pixButton(t *testing.T, msg *waE2E.Message) *waE2E.InteractiveMessage_NativeFlowMessage_NativeFlowButton {
 	t.Helper()
-	require.NotNil(t, msg.ViewOnceMessage)
-	interactive := msg.ViewOnceMessage.GetMessage().GetInteractiveMessage()
+	assert.Nil(t, msg.ViewOnceMessage, "payment_info must not be wrapped in view-once")
+	interactive := msg.GetInteractiveMessage()
 	require.NotNil(t, interactive)
 	flow := interactive.GetNativeFlowMessage()
 	require.NotNil(t, flow)
@@ -50,12 +50,12 @@ func TestBuildPixMessage_Structure(t *testing.T) {
 	assert.Equal(t, "CPF", static["key_type"])
 
 	var messageParams map[string]any
-	flow := msg.ViewOnceMessage.GetMessage().GetInteractiveMessage().GetNativeFlowMessage()
+	flow := msg.GetInteractiveMessage().GetNativeFlowMessage()
 	require.NoError(t, json.Unmarshal([]byte(flow.GetMessageParamsJSON()), &messageParams))
 	assert.Equal(t, "api", messageParams["from"])
 	assert.NotEmpty(t, messageParams["templateId"])
 
-	assert.Same(t, info, msg.ViewOnceMessage.GetMessage().GetInteractiveMessage().GetContextInfo())
+	assert.Same(t, info, msg.GetInteractiveMessage().GetContextInfo())
 }
 
 func TestBuildPixMessage_KeepsProvidedValues(t *testing.T) {
@@ -92,12 +92,27 @@ func TestBuildPixMessage_Validation(t *testing.T) {
 func TestBuildForwardedMessage_Interactive(t *testing.T) {
 	built, err := BuildPixMessage(PixMessage{MerchantName: "m", Key: "k", KeyType: "EVP"}, nil)
 	require.NoError(t, err)
-	// whatsmeow unwraps view-once before storing
-	original := incoming(built.ViewOnceMessage.GetMessage())
+	original := incoming(built)
 
 	out, err := BuildForwardedMessage(original, nil, false)
 
 	require.NoError(t, err)
 	require.NotNil(t, out.InteractiveMessage)
 	assert.True(t, out.InteractiveMessage.GetContextInfo().GetIsForwarded())
+	assert.True(t, IsPixMessage(out))
+}
+
+func TestIsPixMessage(t *testing.T) {
+	built, err := BuildPixMessage(PixMessage{MerchantName: "m", Key: "k", KeyType: "EVP"}, nil)
+	require.NoError(t, err)
+	assert.True(t, IsPixMessage(built))
+	assert.False(t, IsPixMessage(&waE2E.Message{Conversation: proto.String("hi")}))
+	assert.False(t, IsPixMessage(nil))
+}
+
+func TestPixBizNode(t *testing.T) {
+	node := PixBizNode()
+	assert.Equal(t, "biz", node.Tag)
+	assert.Equal(t, "payment_info", node.Attrs["native_flow_name"])
+	assert.Nil(t, node.Content)
 }

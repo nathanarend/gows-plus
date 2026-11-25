@@ -127,6 +127,9 @@ func (s *Server) SendMessage(ctx context.Context, req *__.MessageRequest) (*__.M
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "failed to forward message '%s': %v", fwd.GetMessageId(), err)
 		}
+		if gows.IsPixMessage(message) {
+			extra.AdditionalNodes = &[]waBinary.Node{gows.PixBizNode()}
+		}
 	} else if req.GetPollVote() != nil {
 		vote := req.PollVote
 		if vote.Options == nil {
@@ -293,6 +296,7 @@ func (s *Server) SendMessage(ctx context.Context, req *__.MessageRequest) (*__.M
 			}
 			return nil, err
 		}
+		extra.AdditionalNodes = &[]waBinary.Node{gows.PixBizNode()}
 	} else if req.Location != nil {
 		// Location Message
 		locationMessage := &waE2E.LocationMessage{
